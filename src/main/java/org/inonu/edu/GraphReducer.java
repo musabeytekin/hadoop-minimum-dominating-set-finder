@@ -1,4 +1,5 @@
 package org.inonu.edu;
+
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -27,6 +28,8 @@ public class GraphReducer extends Reducer<IntWritable, Text, IntWritable, Text> 
             sb.deleteCharAt(sb.length() - 1);
         }
 
-        context.write(key, new Text(sb.toString()));
+        if (!neighbors.isEmpty()) {
+            context.write(key, new Text(sb.toString()));
+        }
     }
 }
