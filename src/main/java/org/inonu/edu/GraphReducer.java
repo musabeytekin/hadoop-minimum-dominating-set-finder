@@ -19,10 +19,10 @@ public class GraphReducer extends Reducer<IntWritable, Text, IntWritable, Text> 
         // Write the node and its neighbors to the output
         StringBuilder sb = new StringBuilder();
         for (String neighbor : neighbors) {
-            sb.append(neighbor).append(",");
+            sb.append(neighbor).append(";");
         }
 
-        // Remove trailing comma
+        // Remove trailing semicolon
         if (sb.length() > 0) {
             sb.deleteCharAt(sb.length() - 1);
         }

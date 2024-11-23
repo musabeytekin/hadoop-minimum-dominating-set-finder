@@ -20,7 +20,7 @@ public class DominatingSetJob {
 
         job.setJarByClass(DominatingSetJob.class);
         job.setMapperClass(GraphMapper.class);
-        job.setReducerClass(org.inonu.edu.GraphReducer.class);
+        job.setReducerClass(GraphReducer.class);
 
         job.setOutputKeyClass(IntWritable.class);
         job.setOutputValueClass(Text.class);
