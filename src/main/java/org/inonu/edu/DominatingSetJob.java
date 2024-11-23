@@ -16,6 +16,7 @@ public class DominatingSetJob {
         }
 
         Configuration conf = new Configuration();
+        conf.set("input.path", args[0]);
         Job job = Job.getInstance(conf, "Dominating Set");
 
         job.setJarByClass(DominatingSetJob.class);

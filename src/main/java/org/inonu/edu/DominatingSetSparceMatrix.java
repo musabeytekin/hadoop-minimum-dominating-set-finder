@@ -5,22 +5,26 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.IntWritable;
-import org.apache.hadoop.io.Text;
-import org.apache.hadoop.mapreduce.Reducer;
 
-import java.io.IOException;
-import java.util.*;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.Timer;
+import java.util.TimerTask;
 
-public class GraphReducer extends Reducer<IntWritable, Text, IntWritable, Text> {
-    @Override
-    protected void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
-        List<Integer> run = run(values);
-        for (Integer integer : run) {
-            context.write(key, new Text(integer.toString()));
-        }
-    }
 
+public class DominatingSetSparceMatrix {
+    private int[][] adjacencyMatrix;
+    private List<Integer> vertexDegrees = new ArrayList<>();
+    private List<Integer> degreeDA = new ArrayList<>();
+    private List<Integer> nodeColors = new ArrayList<>();
     private List<Integer> VD = new ArrayList<>(); // Seçilen düğümler listesi
 
     public static int[] degrees(Map<Integer, Set<Integer>> A, int[] dugumRengi, int totalNodes) {
@@ -129,8 +133,8 @@ public class GraphReducer extends Reducer<IntWritable, Text, IntWritable, Text> 
                 if (neighbors != null) {
                     for (int neighbor : neighbors) {
 
-                        // beta2 = Math.log1p(D[i]);
-                        // gamma2 = Math.log1p(D[i]);
+                        // beta2 = Math.log1p(D[i]); 
+                        // gamma2 = Math.log1p(D[i]); 
                         if (D[neighbor] != 0 && MC1[neighbor] != 0) {
                             MC2[i] += Math.pow(MC1[i], beta2) / Math.pow(MC1[neighbor], gamma2);
                         }
@@ -338,24 +342,37 @@ public class GraphReducer extends Reducer<IntWritable, Text, IntWritable, Text> 
         }
     }
 
-    public static Map<Integer, Set<Integer>> getAdjacencyMatrix(Iterable<Text> values, ArrayList<Integer> nodes, List<int[]> edges) {
+    public static Map<Integer, Set<Integer>> getAdjacencyMatrix(List<String> hdfsPaths, ArrayList<Integer> nodes, List<int[]> edges) throws IOException {
+        int nodeNum = 0;
         Set<Integer> nodeSet = new HashSet<>();
         Map<Integer, Integer> nodeIndexMap = new HashMap<>();
 
-        for (Text value : values) {
-            String line = value.toString();
-            String[] parts = line.trim().split(",");
-            int node1 = Integer.parseInt(parts[0].trim());
-            System.out.println("Node1: " + node1);
-            int node2 = Integer.parseInt(parts[1].trim());
-            System.out.println("Node2: " + node2);
+        Configuration conf = new Configuration();
+        FileSystem fs = FileSystem.get(conf);
 
-            if (node1 != node2) {
-                edges.add(new int[]{node1, node2});
+        for (String hdfsPath : hdfsPaths) {
+            Path path = new Path(hdfsPath);
+            FSDataInputStream inputStream = fs.open(path);
+
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    // Clean the line and split by commas
+                    String[] parts = line.trim().split(",");
+                    int node1 = Integer.parseInt(parts[0].trim());
+                    int node2 = Integer.parseInt(parts[1].trim());
+                    if (node1 > nodeNum)
+                        nodeNum = node1;
+                    if (node2 > nodeNum)
+                        nodeNum = node2;
+
+                    if (node1 != node2)
+                        edges.add(new int[]{node1, node2});
+
+                    nodeSet.add(node1);
+                    nodeSet.add(node2);
+                }
             }
-
-            nodeSet.add(node1);
-            nodeSet.add(node2);
         }
 
         nodes.addAll(nodeSet);
@@ -477,12 +494,25 @@ public class GraphReducer extends Reducer<IntWritable, Text, IntWritable, Text> 
         return false;
     }
 
-    public List<Integer> run(Iterable<Text> values) {
+    public List<Integer> run(String hdfsDirPath) {
         try {
             List<int[]> edges = new ArrayList<>();
             ArrayList<Integer> nodes = new ArrayList<>();
+            System.out.println("Dataset: " + hdfsDirPath);
 
-            Map<Integer, Set<Integer>> A = getAdjacencyMatrix(values, nodes, edges);
+            Configuration conf = new Configuration();
+            FileSystem fs = FileSystem.get(conf);
+            Path dirPath = new Path(hdfsDirPath);
+            FileStatus[] fileStatuses = fs.listStatus(dirPath);
+
+            List<String> filePaths = new ArrayList<>();
+            for (FileStatus status : fileStatuses) {
+                if (status.isFile()) {
+                    filePaths.add(status.getPath().toString());
+                }
+            }
+
+            Map<Integer, Set<Integer>> A = getAdjacencyMatrix(filePaths, nodes, edges);
             System.out.println("Nodes size: " + nodes.size());
             System.out.println("Edges size: " + edges.size());
 
@@ -502,6 +532,21 @@ public class GraphReducer extends Reducer<IntWritable, Text, IntWritable, Text> 
             DA = degreeDA(A, dugumRengi, nodes.size());
 
             int bitimDurumu = 1;
+
+            Timer timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    int zeroCount = 0;
+                    for (int color : dugumRengi) {
+                        if (color == 0) {
+                            zeroCount++;
+                        }
+                    }
+                    double percentage = (double) zeroCount / dugumRengi.length * 100;
+                    System.out.printf("Kalan düğüm sayısı: %.2f%%%n", percentage);
+                }
+            }, 0, 600000);
 
             while (bitimDurumu == 1) {
                 MC1 = birinciMalatyaMerkezilik(A, D, avgRelation, dugumRengi);
@@ -527,11 +572,11 @@ public class GraphReducer extends Reducer<IntWritable, Text, IntWritable, Text> 
             long milliseconds = (dt2.getTime() - dt1.getTime());
             System.out.println("Run Time in Milliseconds: " + milliseconds);
 
+            timer.cancel();
         } catch (Exception e) {
             System.out.println(e.getMessage());
         }
 
         return VD;
-
     }
 }
