@@ -1,20 +1,10 @@
-package org.example;
+package org.inonu.edu;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 
 public class DominatingSetSparceMatrix {
     private int[][] adjacencyMatrix;
@@ -51,7 +41,7 @@ public class DominatingSetSparceMatrix {
     }
 
     public static int[] degreeDA(Map<Integer, Set<Integer>> A, int[] dugumRengi, int totalNodes) {
-        int[] DA = new int[totalNodes]; // Derece Ayarlamalarını saklamak için dizi
+        int[] DA = new int[totalNodes];
 
         for (Map.Entry<Integer, Set<Integer>> entry : A.entrySet()) {
             int node = entry.getKey();

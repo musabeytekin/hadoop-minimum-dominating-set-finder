@@ -23,6 +23,11 @@ public class DominatingSetJob {
         job.setCombinerClass(GraphCombiner.class);
         job.setReducerClass(GraphReducer.class);
 
+        // Set map output key/value classes
+        job.setMapOutputKeyClass(IntWritable.class);
+        job.setMapOutputValueClass(IntWritable.class);
+
+        // Set reduce output key/value classes
         job.setOutputKeyClass(IntWritable.class);
         job.setOutputValueClass(Text.class);
 
